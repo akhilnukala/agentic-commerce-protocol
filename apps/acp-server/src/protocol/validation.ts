@@ -22,6 +22,11 @@ const FEED_SCHEMA_ID = "https://example.com/schemas/feed/bundle.schema.json";
 
 const WEBHOOK_EVENT_SCHEMA_ID = "local://acp/webhook-event.schema.json";
 const FEED_UPSERT_RESPONSE_SCHEMA_ID = "local://acp/feed-upsert-response.schema.json";
+const CART_REQUEST_ITEM_SCHEMA_ID = "local://acp/cart-request-item.schema.json";
+const CART_CREATE_REQUEST_SCHEMA_ID =
+  "local://acp/cart-create-request.schema.json";
+const CART_UPDATE_REQUEST_SCHEMA_ID =
+  "local://acp/cart-update-request.schema.json";
 
 type JsonValue = string | number | boolean | null | JsonObject | JsonValue[];
 interface JsonObject {
@@ -111,6 +116,67 @@ function webhookEventSchema(): JsonObject {
   };
 }
 
+function cartRequestItemSchema(): JsonObject {
+  return {
+    $id: CART_REQUEST_ITEM_SCHEMA_ID,
+    type: "object",
+    additionalProperties: false,
+    required: ["id"],
+    properties: {
+      id: { type: "string" },
+      quantity: {
+        type: "integer",
+        minimum: 1,
+      },
+    },
+  };
+}
+
+function cartCreateRequestSchema(): JsonObject {
+  return {
+    $id: CART_CREATE_REQUEST_SCHEMA_ID,
+    type: "object",
+    additionalProperties: false,
+    required: ["line_items"],
+    properties: {
+      line_items: {
+        type: "array",
+        items: {
+          $ref: CART_REQUEST_ITEM_SCHEMA_ID,
+        },
+        minItems: 1,
+      },
+      buyer: {
+        $ref: `${CHECKOUT_SCHEMA_ID}#/$defs/Buyer`,
+      },
+      locale: {
+        type: "string",
+      },
+    },
+  };
+}
+
+function cartUpdateRequestSchema(): JsonObject {
+  return {
+    $id: CART_UPDATE_REQUEST_SCHEMA_ID,
+    type: "object",
+    additionalProperties: false,
+    required: ["line_items"],
+    properties: {
+      line_items: {
+        type: "array",
+        items: {
+          $ref: CART_REQUEST_ITEM_SCHEMA_ID,
+        },
+        minItems: 1,
+      },
+      buyer: {
+        $ref: `${CHECKOUT_SCHEMA_ID}#/$defs/Buyer`,
+      },
+    },
+  };
+}
+
 function feedUpsertResponseSchema(): JsonObject {
   return {
     $id: FEED_UPSERT_RESPONSE_SCHEMA_ID,
@@ -161,77 +227,129 @@ export class ProtocolValidator {
   }
 }
 
-export function createProtocolValidator(jsonSchemaRoot: string): ProtocolValidator {
+export function createProtocolValidator(
+  jsonSchemaRoot: string,
+): ProtocolValidator {
   const ajv = new Ajv2020Ctor({ allErrors: true, strict: false });
   addFormats(ajv);
 
-  const checkoutSchema = readJson(path.join(jsonSchemaRoot, "schema.agentic_checkout.json"));
+  const checkoutSchema = readJson(
+    path.join(jsonSchemaRoot, "schema.agentic_checkout.json"),
+  );
   const cartSchemaRaw = readJson(path.join(jsonSchemaRoot, "schema.cart.json"));
   const cartSchema = rewriteCartRefs(cartSchemaRaw) as JsonObject;
-  const delegateAuthSchema = readJson(path.join(jsonSchemaRoot, "schema.delegate_authentication.json"));
-  const delegatePaymentSchema = readJson(path.join(jsonSchemaRoot, "schema.delegate_payment.json"));
+  const delegateAuthSchema = readJson(
+    path.join(jsonSchemaRoot, "schema.delegate_authentication.json"),
+  );
+  const delegatePaymentSchema = readJson(
+    path.join(jsonSchemaRoot, "schema.delegate_payment.json"),
+  );
   const feedSchema = readJson(path.join(jsonSchemaRoot, "schema.feed.json"));
 
   ajv.addSchema(checkoutSchema);
   ajv.addSchema(checkoutSchema, "schema.agentic_checkout.json");
-  ajv.addSchema(checkoutSchema, "https://example.com/schemas/cart/schema.agentic_checkout.json");
+  ajv.addSchema(
+    checkoutSchema,
+    "https://example.com/schemas/cart/schema.agentic_checkout.json",
+  );
 
   ajv.addSchema(cartSchema);
   ajv.addSchema(delegateAuthSchema);
   ajv.addSchema(delegatePaymentSchema);
   ajv.addSchema(feedSchema);
 
+  // The cart examples and server behavior support quantity on request items,
+  // but the upstream cart schema currently reuses checkout Item, which does not.
+  ajv.addSchema(cartRequestItemSchema());
+  ajv.addSchema(cartCreateRequestSchema());
+  ajv.addSchema(cartUpdateRequestSchema());
   ajv.addSchema(webhookEventSchema());
   ajv.addSchema(feedUpsertResponseSchema());
 
   const validators: Record<ValidatorName, ValidateFunction> = {
-    checkoutCreateRequest: compileOrThrow(ajv, `${CHECKOUT_SCHEMA_ID}#/$defs/CheckoutSessionCreateRequest`),
-    checkoutUpdateRequest: compileOrThrow(ajv, `${CHECKOUT_SCHEMA_ID}#/$defs/CheckoutSessionUpdateRequest`),
-    checkoutCompleteRequest: compileOrThrow(ajv, `${CHECKOUT_SCHEMA_ID}#/$defs/CheckoutSessionCompleteRequest`),
-    checkoutCancelRequest: compileOrThrow(ajv, `${CHECKOUT_SCHEMA_ID}#/$defs/CancelSessionRequest`),
-    checkoutSessionResponse: compileOrThrow(ajv, `${CHECKOUT_SCHEMA_ID}#/$defs/CheckoutSession`),
+    checkoutCreateRequest: compileOrThrow(
+      ajv,
+      `${CHECKOUT_SCHEMA_ID}#/$defs/CheckoutSessionCreateRequest`,
+    ),
+    checkoutUpdateRequest: compileOrThrow(
+      ajv,
+      `${CHECKOUT_SCHEMA_ID}#/$defs/CheckoutSessionUpdateRequest`,
+    ),
+    checkoutCompleteRequest: compileOrThrow(
+      ajv,
+      `${CHECKOUT_SCHEMA_ID}#/$defs/CheckoutSessionCompleteRequest`,
+    ),
+    checkoutCancelRequest: compileOrThrow(
+      ajv,
+      `${CHECKOUT_SCHEMA_ID}#/$defs/CancelSessionRequest`,
+    ),
+    checkoutSessionResponse: compileOrThrow(
+      ajv,
+      `${CHECKOUT_SCHEMA_ID}#/$defs/CheckoutSession`,
+    ),
     checkoutSessionWithOrderResponse: compileOrThrow(
       ajv,
-      `${CHECKOUT_SCHEMA_ID}#/$defs/CheckoutSessionWithOrder`
+      `${CHECKOUT_SCHEMA_ID}#/$defs/CheckoutSessionWithOrder`,
     ),
     checkoutError: compileOrThrow(ajv, `${CHECKOUT_SCHEMA_ID}#/$defs/Error`),
-    cartCreateRequest: compileOrThrow(ajv, `${CART_SCHEMA_ID}#/$defs/CartCreateRequest`),
-    cartUpdateRequest: compileOrThrow(ajv, `${CART_SCHEMA_ID}#/$defs/CartUpdateRequest`),
+    cartCreateRequest: compileOrThrow(ajv, CART_CREATE_REQUEST_SCHEMA_ID),
+    cartUpdateRequest: compileOrThrow(ajv, CART_UPDATE_REQUEST_SCHEMA_ID),
     cartResponse: compileOrThrow(ajv, `${CART_SCHEMA_ID}#/$defs/Cart`),
     delegateAuthCreateRequest: compileOrThrow(
       ajv,
-      `${DELEGATE_AUTH_SCHEMA_ID}#/$defs/DelegateAuthenticationCreateRequest`
+      `${DELEGATE_AUTH_SCHEMA_ID}#/$defs/DelegateAuthenticationCreateRequest`,
     ),
     delegateAuthAuthenticateRequest: compileOrThrow(
       ajv,
-      `${DELEGATE_AUTH_SCHEMA_ID}#/$defs/DelegateAuthenticationAuthenticateRequest`
+      `${DELEGATE_AUTH_SCHEMA_ID}#/$defs/DelegateAuthenticationAuthenticateRequest`,
     ),
     delegateAuthSessionResponse: compileOrThrow(
       ajv,
-      `${DELEGATE_AUTH_SCHEMA_ID}#/$defs/DelegateAuthenticationSession`
+      `${DELEGATE_AUTH_SCHEMA_ID}#/$defs/DelegateAuthenticationSession`,
     ),
     delegateAuthSessionWithResultResponse: compileOrThrow(
       ajv,
-      `${DELEGATE_AUTH_SCHEMA_ID}#/$defs/DelegateAuthenticationSessionWithResult`
+      `${DELEGATE_AUTH_SCHEMA_ID}#/$defs/DelegateAuthenticationSessionWithResult`,
     ),
-    delegateAuthError: compileOrThrow(ajv, `${DELEGATE_AUTH_SCHEMA_ID}#/$defs/Error`),
+    delegateAuthError: compileOrThrow(
+      ajv,
+      `${DELEGATE_AUTH_SCHEMA_ID}#/$defs/Error`,
+    ),
     delegatePaymentRequest: compileOrThrow(
       ajv,
-      `${DELEGATE_PAYMENT_SCHEMA_ID}#/$defs/DelegatePaymentRequest`
+      `${DELEGATE_PAYMENT_SCHEMA_ID}#/$defs/DelegatePaymentRequest`,
     ),
     delegatePaymentResponse: compileOrThrow(
       ajv,
-      `${DELEGATE_PAYMENT_SCHEMA_ID}#/$defs/DelegatePaymentResponse`
+      `${DELEGATE_PAYMENT_SCHEMA_ID}#/$defs/DelegatePaymentResponse`,
     ),
-    delegatePaymentError: compileOrThrow(ajv, `${DELEGATE_PAYMENT_SCHEMA_ID}#/$defs/Error`),
-    feedCreateRequest: compileOrThrow(ajv, `${FEED_SCHEMA_ID}#/$defs/CreateFeedRequest`),
-    feedUpsertRequest: compileOrThrow(ajv, `${FEED_SCHEMA_ID}#/$defs/UpsertProductsRequest`),
-    feedMetadataResponse: compileOrThrow(ajv, `${FEED_SCHEMA_ID}#/$defs/FeedMetadata`),
-    feedProductsResponse: compileOrThrow(ajv, `${FEED_SCHEMA_ID}#/$defs/ProductsResponse`),
+    delegatePaymentError: compileOrThrow(
+      ajv,
+      `${DELEGATE_PAYMENT_SCHEMA_ID}#/$defs/Error`,
+    ),
+    feedCreateRequest: compileOrThrow(
+      ajv,
+      `${FEED_SCHEMA_ID}#/$defs/CreateFeedRequest`,
+    ),
+    feedUpsertRequest: compileOrThrow(
+      ajv,
+      `${FEED_SCHEMA_ID}#/$defs/UpsertProductsRequest`,
+    ),
+    feedMetadataResponse: compileOrThrow(
+      ajv,
+      `${FEED_SCHEMA_ID}#/$defs/FeedMetadata`,
+    ),
+    feedProductsResponse: compileOrThrow(
+      ajv,
+      `${FEED_SCHEMA_ID}#/$defs/ProductsResponse`,
+    ),
     feedUpsertResponse: compileOrThrow(ajv, FEED_UPSERT_RESPONSE_SCHEMA_ID),
     feedError: compileOrThrow(ajv, `${FEED_SCHEMA_ID}#/$defs/Error`),
-    discoveryResponse: compileOrThrow(ajv, `${CHECKOUT_SCHEMA_ID}#/$defs/DiscoveryResponse`),
-    webhookEventRequest: compileOrThrow(ajv, WEBHOOK_EVENT_SCHEMA_ID)
+    discoveryResponse: compileOrThrow(
+      ajv,
+      `${CHECKOUT_SCHEMA_ID}#/$defs/DiscoveryResponse`,
+    ),
+    webhookEventRequest: compileOrThrow(ajv, WEBHOOK_EVENT_SCHEMA_ID),
   };
 
   return new ProtocolValidator(validators);

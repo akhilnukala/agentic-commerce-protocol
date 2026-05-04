@@ -81,11 +81,16 @@ describe("ACP REST server", () => {
   it("supports full cart lifecycle and returns 404 after cancel", async () => {
     const createResponse = await request(app)
       .post("/carts")
-      .set(requiredHeaders({ "Idempotency-Key": "550e8400-e29b-41d4-a716-446655440010" }))
-      .send({ line_items: [{ id: "item_123" }] });
+      .set(
+        requiredHeaders({
+          "Idempotency-Key": "550e8400-e29b-41d4-a716-446655440010",
+        }),
+      )
+      .send({ line_items: [{ id: "item_123", quantity: 1 }] });
 
     expect(createResponse.status).toBe(201);
     expect(validator.validate("cartResponse", createResponse.body).valid).toBe(true);
+    expect(createResponse.body.line_items[0].quantity).toBe(1);
 
     const cartId = createResponse.body.id;
 
@@ -98,13 +103,18 @@ describe("ACP REST server", () => {
 
     const updateResponse = await request(app)
       .put(`/carts/${cartId}`)
-      .set(requiredHeaders({ "Idempotency-Key": "550e8400-e29b-41d4-a716-446655440011" }))
+      .set(
+        requiredHeaders({
+          "Idempotency-Key": "550e8400-e29b-41d4-a716-446655440011",
+        }),
+      )
       .send({
-        line_items: [{ id: "item_456" }]
+        line_items: [{ id: "item_456", quantity: 2 }],
       });
 
     expect(updateResponse.status).toBe(200);
     expect(validator.validate("cartResponse", updateResponse.body).valid).toBe(true);
+    expect(updateResponse.body.line_items[0].quantity).toBe(2);
 
     const cancelResponse = await request(app)
       .post(`/carts/${cartId}/cancel`)
