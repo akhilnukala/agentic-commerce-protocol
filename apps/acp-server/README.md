@@ -51,6 +51,8 @@ This package implements ACP-compatible REST endpoints using the protocol definit
 
 These examples are self-contained and can be pasted directly.
 
+If you want a browser-friendly version with explicit copy buttons for every snippet, open [docs/curl-cheatsheet.html](./docs/curl-cheatsheet.html).
+
 Useful seeded IDs for local testing:
 
 - `feed_seed`

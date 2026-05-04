@@ -1,0 +1,1039 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ACP Mock Server Curl Cheatsheet</title>
+  <style>
+    :root {
+      --page: #f7f2e8;
+      --page-deep: #efe4d1;
+      --panel: rgba(255, 252, 246, 0.88);
+      --panel-strong: #fffaf2;
+      --ink: #1f2b22;
+      --muted: #5a685e;
+      --accent: #17624e;
+      --accent-strong: #0c4a39;
+      --accent-soft: rgba(23, 98, 78, 0.12);
+      --border: rgba(31, 43, 34, 0.14);
+      --shadow: 0 18px 50px rgba(55, 45, 25, 0.12);
+      --code-bg: #16211b;
+      --code-ink: #eef7f2;
+      --ok: #1e7c54;
+      --radius: 20px;
+      --font-sans: "IBM Plex Sans", "Avenir Next", "Helvetica Neue", sans-serif;
+      --font-mono: "IBM Plex Mono", "SFMono-Regular", "Menlo", monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      font-family: var(--font-sans);
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(255, 255, 255, 0.65), transparent 30%),
+        linear-gradient(180deg, var(--page) 0%, var(--page-deep) 100%);
+      min-height: 100vh;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(23, 98, 78, 0.045) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(23, 98, 78, 0.045) 1px, transparent 1px);
+      background-size: 28px 28px;
+      pointer-events: none;
+      opacity: 0.45;
+    }
+
+    .shell {
+      position: relative;
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 36px 20px 64px;
+    }
+
+    .hero {
+      background: linear-gradient(145deg, rgba(255, 251, 244, 0.95), rgba(246, 238, 224, 0.9));
+      border: 1px solid rgba(255, 255, 255, 0.75);
+      border-radius: 30px;
+      box-shadow: var(--shadow);
+      padding: 28px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      width: 240px;
+      height: 240px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(23, 98, 78, 0.2), transparent 65%);
+      top: -80px;
+      right: -40px;
+      pointer-events: none;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 12px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent-strong);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 16px 0 10px;
+      font-size: clamp(2rem, 4vw, 3.6rem);
+      line-height: 0.95;
+      letter-spacing: -0.04em;
+      max-width: 11ch;
+    }
+
+    .hero p {
+      margin: 0;
+      max-width: 68ch;
+      color: var(--muted);
+      font-size: 1rem;
+      line-height: 1.7;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.3fr) minmax(300px, 0.7fr);
+      gap: 24px;
+      align-items: end;
+    }
+
+    .meta-panel {
+      background: rgba(255, 255, 255, 0.68);
+      border: 1px solid rgba(23, 98, 78, 0.12);
+      border-radius: 20px;
+      padding: 18px;
+      backdrop-filter: blur(10px);
+    }
+
+    .meta-panel h2 {
+      margin: 0 0 12px;
+      font-size: 1rem;
+    }
+
+    .meta-panel ul {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+
+    .jump-nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 20px 0 0;
+    }
+
+    .jump-nav a {
+      color: var(--accent-strong);
+      text-decoration: none;
+      font-weight: 600;
+      background: rgba(255, 255, 255, 0.7);
+      border: 1px solid rgba(23, 98, 78, 0.12);
+      border-radius: 999px;
+      padding: 9px 14px;
+      transition: transform 140ms ease, background-color 140ms ease;
+    }
+
+    .jump-nav a:hover {
+      transform: translateY(-1px);
+      background: rgba(255, 255, 255, 0.96);
+    }
+
+    .section {
+      margin-top: 26px;
+      padding: 28px;
+      border-radius: 26px;
+      border: 1px solid rgba(255, 255, 255, 0.7);
+      background: var(--panel);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(14px);
+      animation: lift-in 340ms ease both;
+    }
+
+    .section h2 {
+      margin: 0 0 10px;
+      font-size: clamp(1.6rem, 2vw, 2.2rem);
+      letter-spacing: -0.03em;
+    }
+
+    .section > p {
+      margin: 0 0 20px;
+      color: var(--muted);
+      line-height: 1.7;
+      max-width: 72ch;
+    }
+
+    .subsection {
+      margin-top: 26px;
+    }
+
+    .subsection h3 {
+      margin: 0 0 14px;
+      font-size: 1.15rem;
+      letter-spacing: -0.02em;
+    }
+
+    .snippet-grid {
+      display: grid;
+      gap: 16px;
+    }
+
+    .snippet-card {
+      background: var(--panel-strong);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 10px 26px rgba(36, 38, 28, 0.06);
+    }
+
+    .snippet-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 16px;
+      border-bottom: 1px solid rgba(31, 43, 34, 0.08);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(249, 245, 237, 0.92));
+    }
+
+    .snippet-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .snippet-title strong {
+      font-size: 0.98rem;
+      line-height: 1.35;
+    }
+
+    .snippet-tag {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 46px;
+      padding: 5px 9px;
+      border-radius: 999px;
+      background: rgba(23, 98, 78, 0.08);
+      color: var(--accent-strong);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: lowercase;
+    }
+
+    .copy-button {
+      appearance: none;
+      border: 0;
+      border-radius: 999px;
+      padding: 10px 14px;
+      background: var(--accent);
+      color: white;
+      font: inherit;
+      font-size: 0.92rem;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      transition: transform 140ms ease, background-color 140ms ease, opacity 140ms ease;
+      white-space: nowrap;
+    }
+
+    .copy-button:hover {
+      transform: translateY(-1px);
+      background: var(--accent-strong);
+    }
+
+    .copy-button[data-state="copied"] {
+      background: var(--ok);
+    }
+
+    .copy-button:focus-visible {
+      outline: 2px solid rgba(23, 98, 78, 0.32);
+      outline-offset: 2px;
+    }
+
+    pre {
+      margin: 0;
+      padding: 18px;
+      overflow-x: auto;
+      background: var(--code-bg);
+      color: var(--code-ink);
+      font-family: var(--font-mono);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    code {
+      font-family: inherit;
+      white-space: pre;
+    }
+
+    .toast {
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      padding: 12px 14px;
+      border-radius: 16px;
+      background: rgba(20, 31, 24, 0.95);
+      color: white;
+      font-size: 0.94rem;
+      box-shadow: 0 16px 40px rgba(15, 22, 17, 0.24);
+      opacity: 0;
+      transform: translateY(12px);
+      transition: opacity 180ms ease, transform 180ms ease;
+      pointer-events: none;
+    }
+
+    .toast.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    @keyframes lift-in {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @media (max-width: 900px) {
+      .hero-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .shell {
+        padding: 18px 14px 44px;
+      }
+
+      .hero,
+      .section {
+        padding: 20px;
+        border-radius: 22px;
+      }
+
+      .snippet-head {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .copy-button {
+        width: 100%;
+        justify-content: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="hero">
+      <div class="hero-grid">
+        <div>
+          <span class="eyebrow">ACP Mock Server Docs</span>
+          <h1>Curl Cheatsheet With Copy Buttons</h1>
+          <p>
+            This is a browser-friendly companion to the mock server README. Every bash snippet has an explicit
+            copy button, so you can move between the happy path, route-by-route examples, and the full end-to-end
+            demo without editing shell variables first.
+          </p>
+          <nav class="jump-nav" aria-label="Jump links">
+            <a href="#happy-path">Fresh Path</a>
+            <a href="#route-examples">Route Examples</a>
+            <a href="#demo">Full Demo</a>
+          </nav>
+        </div>
+        <aside class="meta-panel">
+          <h2>Seeded local IDs</h2>
+          <ul>
+            <li><code>feed_seed</code></li>
+            <li><code>item_123</code></li>
+            <li><code>item_456</code></li>
+            <li><code>prod_classic_tee</code></li>
+            <li><code>sku123-red-s</code></li>
+          </ul>
+        </aside>
+      </div>
+    </header>
+
+    <section class="section" id="happy-path">
+      <h2>Fresh Server Happy Path</h2>
+      <p>
+        If you restart the server and begin with empty in-memory state, the first generated IDs will usually be
+        <code>cart_000001</code>, <code>cs_000001</code>, <code>das_000001</code>, and <code>feed_000001</code>.
+        If your server already has state, replace those IDs with the values returned by the earlier create calls.
+      </p>
+      <div class="snippet-grid" id="happy-path-snippets"></div>
+    </section>
+
+    <section class="section" id="route-examples">
+      <h2>Individual Route Examples</h2>
+      <p>
+        Use these when you want to hit one route at a time. The command bodies match the current README examples,
+        but the buttons make them easier to copy as-is.
+      </p>
+      <div id="route-sections"></div>
+    </section>
+
+    <section class="section" id="demo">
+      <h2>Copy-Paste End-to-End Demo</h2>
+      <p>
+        Start the server with <code>npm run dev</code>, then paste this whole block into a terminal. It walks through
+        discovery, cart, checkout, payment, authentication, and webhook inspection in sequence.
+      </p>
+      <div class="snippet-grid" id="demo-snippets"></div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script type="module">
+    const happyPathSnippets = [
+      {
+        title: "1. Health check",
+        code: String.raw`curl "http://localhost:8080/healthz"`
+      },
+      {
+        title: "2. Discovery",
+        code: String.raw`curl "http://localhost:8080/.well-known/acp.json"`
+      },
+      {
+        title: "3. Read the seeded product catalog",
+        code: String.raw`curl "http://localhost:8080/feeds/feed_seed/products"`
+      },
+      {
+        title: "4. Create a cart",
+        code: String.raw`curl -X POST "http://localhost:8080/carts" \
+   -H "API-Version: 2026-04-17" \
+   -H "Content-Type: application/json" \
+   -H "Idempotency-Key: 550e8400-e29b-41d4-a716-446655440010" \
+   -H "Request-Id: req_demo_123" \
+   -d '{
+      "line_items": [
+         { "id": "item_123", "quantity": 1 }
+      ]
+   }'`
+      },
+      {
+        title: "5. Update that cart",
+        code: String.raw`curl -X PUT "http://localhost:8080/carts/cart_000001" \
+   -H "API-Version: 2026-04-17" \
+   -H "Content-Type: application/json" \
+   -H "Idempotency-Key: 550e8400-e29b-41d4-a716-446655440011" \
+   -H "Request-Id: req_demo_123" \
+   -d '{
+      "line_items": [
+         { "id": "item_456", "quantity": 2 }
+      ]
+   }'`
+      },
+      {
+        title: "6. Create a checkout session",
+        code: String.raw`curl -X POST "http://localhost:8080/checkout_sessions" \
+   -H "API-Version: 2026-04-17" \
+   -H "Content-Type: application/json" \
+   -H "Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000" \
+   -H "Request-Id: req_demo_123" \
+   -d '{
+      "line_items": [
+         { "id": "item_123" }
+      ],
+      "currency": "usd",
+      "capabilities": {}
+   }'`
+      },
+      {
+        title: "7. Create a delegated payment token",
+        code: String.raw`curl -X POST "http://localhost:8080/agentic_commerce/delegate_payment" \
+   -H "API-Version: 2026-04-17" \
+   -H "Content-Type: application/json" \
+   -H "Idempotency-Key: 550e8400-e29b-41d4-a716-446655440020" \
+   -H "Request-Id: req_demo_123" \
+   -d '{
+      "payment_method": {
+         "type": "card",
+         "card_number_type": "fpan",
+         "number": "4242424242424242",
+         "exp_month": "11",
+         "exp_year": "2026",
+         "name": "Jane Doe",
+         "cvc": "223",
+         "checks_performed": ["avs"],
+         "iin": "424242",
+         "display_card_funding_type": "credit",
+         "display_brand": "visa",
+         "display_last4": "4242",
+         "metadata": {
+            "issuing_bank": "Test"
+         }
+      },
+      "allowance": {
+         "reason": "one_time",
+         "max_amount": 5000,
+         "currency": "usd",
+         "checkout_session_id": "cs_123",
+         "merchant_id": "acme",
+         "expires_at": "2026-12-31T00:00:00Z"
+      },
+      "risk_signals": [
+         {
+            "type": "card_testing",
+            "score": 5,
+            "action": "authorized"
+         }
+      ],
+      "metadata": {
+         "source": "test"
+      }
+   }'`
+      },
+      {
+        title: "8. Create an authentication session",
+        code: String.raw`curl -X POST "http://localhost:8080/delegate_authentication" \
+   -H "API-Version: 2026-04-17" \
+   -H "Content-Type: application/json" \
+   -H "Request-Id: req_demo_123" \
+   -d '{
+      "merchant_id": "merchant_abc123",
+      "payment_method": {
+         "type": "card",
+         "number": "4917610000000000",
+         "exp_month": "03",
+         "exp_year": "2030",
+         "name": "Jane Doe"
+      },
+      "amount": {
+         "value": 1000,
+         "currency": "EUR"
+      }
+   }'`
+      },
+      {
+        title: "9. Authenticate the authentication session",
+        code: String.raw`curl -X POST "http://localhost:8080/delegate_authentication/das_000001/authenticate" \
+   -H "API-Version: 2026-04-17" \
+   -H "Content-Type: application/json" \
+   -H "Request-Id: req_demo_123" \
+   -d '{
+      "fingerprint_completion": "Y"
+   }'`
+      },
+      {
+        title: "10. Complete the checkout session",
+        code: String.raw`curl -X POST "http://localhost:8080/checkout_sessions/cs_000001/complete" \
+   -H "API-Version: 2026-04-17" \
+   -H "Content-Type: application/json" \
+   -H "Idempotency-Key: 550e8400-e29b-41d4-a716-446655440002" \
+   -H "Request-Id: req_demo_123" \
+   -d '{
+      "payment_data": {
+         "handler_id": "handler_card",
+         "instrument": {
+            "type": "card",
+            "credential": {
+               "type": "spt",
+               "token": "spt_123"
+            }
+         }
+      }
+   }'`
+      },
+      {
+        title: "11. Post an order webhook event",
+        code: String.raw`curl -X POST "http://localhost:8080/agentic_checkout/webhooks/order_events" \
+   -H "Content-Type: application/json" \
+   -H "Merchant-Signature: t=1709123456,v1=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" \
+   -H "Request-Id: req_webhook_1" \
+   -d '{
+      "type": "order_update",
+      "data": {
+         "type": "order",
+         "id": "ord_123",
+         "checkout_session_id": "cs_123",
+         "permalink_url": "https://merchant.example.com/orders/ord_123",
+         "status": "processing"
+      }
+   }'`
+      },
+      {
+        title: "12. Inspect captured webhook events",
+        code: String.raw`curl "http://localhost:8080/_debug/webhooks"`
+      }
+    ];
+
+    const routeSections = [
+      {
+        title: "Health And Discovery",
+        snippets: [
+          {
+            title: "Health check",
+            code: String.raw`curl "http://localhost:8080/healthz"`
+          },
+          {
+            title: "Discovery",
+            code: String.raw`curl "http://localhost:8080/.well-known/acp.json"`
+          }
+        ]
+      },
+      {
+        title: "Checkout API",
+        snippets: [
+          {
+            title: "Create a checkout session",
+            code: happyPathSnippets[5].code
+          },
+          {
+            title: "Get a checkout session",
+            code: String.raw`curl "http://localhost:8080/checkout_sessions/cs_000001" \
+   -H "API-Version: 2026-04-17" \
+   -H "Request-Id: req_demo_123"`
+          },
+          {
+            title: "Update a checkout session",
+            code: String.raw`curl -X POST "http://localhost:8080/checkout_sessions/cs_000001" \
+   -H "API-Version: 2026-04-17" \
+   -H "Content-Type: application/json" \
+   -H "Idempotency-Key: 550e8400-e29b-41d4-a716-446655440001" \
+   -H "Request-Id: req_demo_123" \
+   -d '{
+      "selected_fulfillment_options": [
+         {
+            "type": "shipping",
+            "option_id": "fulfillment_option_456",
+            "item_ids": ["item_123"]
+         }
+      ]
+   }'`
+          },
+          {
+            title: "Complete a checkout session",
+            code: happyPathSnippets[9].code
+          },
+          {
+            title: "Cancel a checkout session",
+            code: String.raw`curl -X POST "http://localhost:8080/checkout_sessions/cs_000001/cancel" \
+   -H "API-Version: 2026-04-17" \
+   -H "Content-Type: application/json" \
+   -H "Idempotency-Key: 550e8400-e29b-41d4-a716-446655440003" \
+   -H "Request-Id: req_demo_123" \
+   -d '{}'`
+          }
+        ]
+      },
+      {
+        title: "Cart API",
+        snippets: [
+          {
+            title: "Create a cart",
+            code: happyPathSnippets[3].code
+          },
+          {
+            title: "Get a cart",
+            code: String.raw`curl "http://localhost:8080/carts/cart_000001" \
+   -H "API-Version: 2026-04-17" \
+   -H "Request-Id: req_demo_123"`
+          },
+          {
+            title: "Update a cart",
+            code: happyPathSnippets[4].code
+          },
+          {
+            title: "Cancel a cart",
+            code: String.raw`curl -X POST "http://localhost:8080/carts/cart_000001/cancel" \
+   -H "API-Version: 2026-04-17" \
+   -H "Content-Type: application/json" \
+   -H "Idempotency-Key: 550e8400-e29b-41d4-a716-446655440012" \
+   -H "Request-Id: req_demo_123" \
+   -d '{}'`
+          }
+        ]
+      },
+      {
+        title: "Delegate Authentication API",
+        snippets: [
+          {
+            title: "Create an authentication session",
+            code: happyPathSnippets[7].code
+          },
+          {
+            title: "Authenticate a session",
+            code: happyPathSnippets[8].code
+          },
+          {
+            title: "Get an authentication session",
+            code: String.raw`curl "http://localhost:8080/delegate_authentication/das_000001" \
+   -H "API-Version: 2026-04-17" \
+   -H "Request-Id: req_demo_123"`
+          }
+        ]
+      },
+      {
+        title: "Delegate Payment API",
+        snippets: [
+          {
+            title: "Create a delegated payment token",
+            code: happyPathSnippets[6].code
+          }
+        ]
+      },
+      {
+        title: "Feed API",
+        snippets: [
+          {
+            title: "Create a feed",
+            code: String.raw`curl -X POST "http://localhost:8080/feeds" \
+   -H "Content-Type: application/json" \
+   -d '{
+      "target_country": "US"
+   }'`
+          },
+          {
+            title: "Get feed metadata",
+            code: String.raw`curl "http://localhost:8080/feeds/feed_seed"`
+          },
+          {
+            title: "Get feed products",
+            code: String.raw`curl "http://localhost:8080/feeds/feed_seed/products"`
+          },
+          {
+            title: "Upsert feed products",
+            code: String.raw`curl -X PATCH "http://localhost:8080/feeds/feed_seed/products" \
+   -H "Content-Type: application/json" \
+   -d '{
+      "products": [
+         {
+            "id": "prod_test_shirt",
+            "title": "Test Shirt",
+            "variants": [
+               {
+                  "id": "sku_test_shirt_small",
+                  "title": "Test Shirt Small"
+               }
+            ]
+         }
+      ]
+   }'`
+          }
+        ]
+      },
+      {
+        title: "Order Webhook Receiver",
+        snippets: [
+          {
+            title: "Post an order event webhook",
+            code: happyPathSnippets[10].code
+          },
+          {
+            title: "Inspect captured webhook events",
+            code: happyPathSnippets[11].code
+          }
+        ]
+      }
+    ];
+
+    const demoSnippets = [
+      {
+        title: "Full end-to-end demo",
+        code: String.raw`curl "http://localhost:8080/healthz"
+
+curl "http://localhost:8080/.well-known/acp.json"
+
+curl "http://localhost:8080/feeds/feed_seed/products"
+
+curl -X POST "http://localhost:8080/carts" \
+   -H "API-Version: 2026-04-17" \
+   -H "Content-Type: application/json" \
+   -H "Idempotency-Key: 550e8400-e29b-41d4-a716-446655440010" \
+   -H "Request-Id: req_demo_123" \
+   -d '{
+      "line_items": [
+         { "id": "item_123", "quantity": 1 }
+      ]
+   }'
+
+curl -X PUT "http://localhost:8080/carts/cart_000001" \
+   -H "API-Version: 2026-04-17" \
+   -H "Content-Type: application/json" \
+   -H "Idempotency-Key: 550e8400-e29b-41d4-a716-446655440011" \
+   -H "Request-Id: req_demo_123" \
+   -d '{
+      "line_items": [
+         { "id": "item_456", "quantity": 2 }
+      ]
+   }'
+
+curl -X POST "http://localhost:8080/checkout_sessions" \
+   -H "API-Version: 2026-04-17" \
+   -H "Content-Type: application/json" \
+   -H "Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000" \
+   -H "Request-Id: req_demo_123" \
+   -d '{
+      "line_items": [
+         { "id": "item_123" }
+      ],
+      "currency": "usd",
+      "capabilities": {}
+   }'
+
+curl -X POST "http://localhost:8080/agentic_commerce/delegate_payment" \
+   -H "API-Version: 2026-04-17" \
+   -H "Content-Type: application/json" \
+   -H "Idempotency-Key: 550e8400-e29b-41d4-a716-446655440020" \
+   -H "Request-Id: req_demo_123" \
+   -d '{
+      "payment_method": {
+         "type": "card",
+         "card_number_type": "fpan",
+         "number": "4242424242424242",
+         "exp_month": "11",
+         "exp_year": "2026",
+         "name": "Jane Doe",
+         "cvc": "223",
+         "checks_performed": ["avs"],
+         "iin": "424242",
+         "display_card_funding_type": "credit",
+         "display_brand": "visa",
+         "display_last4": "4242",
+         "metadata": {
+            "issuing_bank": "Test"
+         }
+      },
+      "allowance": {
+         "reason": "one_time",
+         "max_amount": 5000,
+         "currency": "usd",
+         "checkout_session_id": "cs_123",
+         "merchant_id": "acme",
+         "expires_at": "2026-12-31T00:00:00Z"
+      },
+      "risk_signals": [
+         {
+            "type": "card_testing",
+            "score": 5,
+            "action": "authorized"
+         }
+      ],
+      "metadata": {
+         "source": "test"
+      }
+   }'
+
+curl -X POST "http://localhost:8080/delegate_authentication" \
+   -H "API-Version: 2026-04-17" \
+   -H "Content-Type: application/json" \
+   -H "Request-Id: req_demo_123" \
+   -d '{
+      "merchant_id": "merchant_abc123",
+      "payment_method": {
+         "type": "card",
+         "number": "4917610000000000",
+         "exp_month": "03",
+         "exp_year": "2030",
+         "name": "Jane Doe"
+      },
+      "amount": {
+         "value": 1000,
+         "currency": "EUR"
+      }
+   }'
+
+curl -X POST "http://localhost:8080/delegate_authentication/das_000001/authenticate" \
+   -H "API-Version: 2026-04-17" \
+   -H "Content-Type: application/json" \
+   -H "Request-Id: req_demo_123" \
+   -d '{
+      "fingerprint_completion": "Y"
+   }'
+
+curl -X POST "http://localhost:8080/checkout_sessions/cs_000001/complete" \
+   -H "API-Version: 2026-04-17" \
+   -H "Content-Type: application/json" \
+   -H "Idempotency-Key: 550e8400-e29b-41d4-a716-446655440002" \
+   -H "Request-Id: req_demo_123" \
+   -d '{
+      "payment_data": {
+         "handler_id": "handler_card",
+         "instrument": {
+            "type": "card",
+            "credential": {
+               "type": "spt",
+               "token": "spt_123"
+            }
+         }
+      }
+   }'
+
+curl -X POST "http://localhost:8080/agentic_checkout/webhooks/order_events" \
+   -H "Content-Type: application/json" \
+   -H "Merchant-Signature: t=1709123456,v1=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" \
+   -H "Request-Id: req_webhook_1" \
+   -d '{
+      "type": "order_update",
+      "data": {
+         "type": "order",
+         "id": "ord_123",
+         "checkout_session_id": "cs_123",
+         "permalink_url": "https://merchant.example.com/orders/ord_123",
+         "status": "processing"
+      }
+   }'
+
+curl "http://localhost:8080/_debug/webhooks"`
+      }
+    ];
+
+    const toast = document.querySelector("#toast");
+
+    function showToast(message) {
+      toast.textContent = message;
+      toast.classList.add("visible");
+      window.clearTimeout(showToast.timeoutId);
+      showToast.timeoutId = window.setTimeout(() => {
+        toast.classList.remove("visible");
+      }, 1600);
+    }
+
+    async function copyText(text) {
+      try {
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(text);
+          return true;
+        }
+      } catch {
+        // Fall back below.
+      }
+
+      const fallback = document.createElement("textarea");
+      fallback.value = text;
+      fallback.setAttribute("readonly", "");
+      fallback.style.position = "absolute";
+      fallback.style.left = "-9999px";
+      document.body.appendChild(fallback);
+      fallback.select();
+      const copied = document.execCommand("copy");
+      document.body.removeChild(fallback);
+      return copied;
+    }
+
+    function makeSnippetCard(snippet) {
+      const card = document.createElement("article");
+      card.className = "snippet-card";
+
+      const head = document.createElement("div");
+      head.className = "snippet-head";
+
+      const titleWrap = document.createElement("div");
+      titleWrap.className = "snippet-title";
+
+      const tag = document.createElement("span");
+      tag.className = "snippet-tag";
+      tag.textContent = "bash";
+
+      const title = document.createElement("strong");
+      title.textContent = snippet.title;
+
+      titleWrap.append(tag, title);
+
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "copy-button";
+      button.setAttribute("aria-label", `Copy ${snippet.title}`);
+      button.innerHTML = `
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <rect x="9" y="9" width="10" height="10" rx="2" stroke="currentColor" stroke-width="1.8"></rect>
+          <path d="M7 15H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
+        </svg>
+        <span>Copy</span>
+      `;
+
+      button.addEventListener("click", async () => {
+        const ok = await copyText(snippet.code);
+        if (!ok) {
+          showToast("Copy failed");
+          return;
+        }
+
+        button.dataset.state = "copied";
+        button.querySelector("span").textContent = "Copied";
+        showToast(`Copied: ${snippet.title}`);
+        window.setTimeout(() => {
+          button.dataset.state = "idle";
+          button.querySelector("span").textContent = "Copy";
+        }, 1400);
+      });
+
+      head.append(titleWrap, button);
+
+      const pre = document.createElement("pre");
+      const code = document.createElement("code");
+      code.textContent = snippet.code;
+      pre.appendChild(code);
+
+      card.append(head, pre);
+      return card;
+    }
+
+    function renderSnippetList(containerId, snippets) {
+      const container = document.querySelector(containerId);
+      snippets.forEach((snippet) => {
+        container.appendChild(makeSnippetCard(snippet));
+      });
+    }
+
+    renderSnippetList("#happy-path-snippets", happyPathSnippets);
+    renderSnippetList("#demo-snippets", demoSnippets);
+
+    const routeSectionsHost = document.querySelector("#route-sections");
+    routeSections.forEach((section) => {
+      const wrap = document.createElement("div");
+      wrap.className = "subsection";
+
+      const heading = document.createElement("h3");
+      heading.textContent = section.title;
+
+      const grid = document.createElement("div");
+      grid.className = "snippet-grid";
+
+      section.snippets.forEach((snippet) => {
+        grid.appendChild(makeSnippetCard(snippet));
+      });
+
+      wrap.append(heading, grid);
+      routeSectionsHost.appendChild(wrap);
+    });
+  </script>
+</body>
+</html>
